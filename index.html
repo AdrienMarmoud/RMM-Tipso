@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WinPulse RMM - Supervision & Prise de Main PC Windows</title>
+    <!-- Tailwind CSS pour un design moderne & fluide -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            950: '#060913',
+                            900: '#0b1021',
+                            800: '#151d38',
+                            700: '#212d54',
+                            border: '#1e294b',
+                            neon: '#00f0ff',
+                            purple: '#7000ff'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #060913; color: #cbd5e1; }
+        .font-mono { font-family: 'Fira Code', monospace; }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0b1021; }
+        ::-webkit-scrollbar-thumb { background: #212d54; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00f0ff; }
+
+        .glow-cyan { box-shadow: 0 0 15px rgba(0, 240, 255, 0.25); }
+        .glow-pulse { animation: pulseGlow 2s infinite alternate; }
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 8px rgba(0, 240, 255, 0.2); }
+            100% { box-shadow: 0 0 20px rgba(0, 240, 255, 0.5); }
+        }
+    </style>
+</head>
+<body class="h-screen overflow-hidden flex flex-col text-slate-300 select-none">
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="h-14 bg-cyber-900 border-b border-cyber-border px-4 flex items-center justify-between shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center font-black text-white text-lg glow-cyan">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-extrabold text-white text-base tracking-wide">WinPulse <span class="text-cyan-400 font-mono text-xs px-1.5 py-0.5 rounded bg-cyan-950 border border-cyan-500/30">RMM v3.2</span></h1>
+                </div>
+                <p class="text-[10px] text-slate-400">Supervision de Parc & Assistance à Distance Windows</p>
+            </div>
+        </div>
+
+        <!-- Global Quick Stats Banner -->
+        <div class="hidden md:flex items-center gap-6 text-xs border-x border-cyber-border px-6 py-1">
+            <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="text-slate-400">En ligne:</span>
+                <span id="stat-online-count" class="font-mono font-bold text-emerald-400 text-sm">6 / 8</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                <span class="text-slate-400">Alertes:</span>
+                <span id="stat-alerts-count" class="font-mono font-bold text-rose-400 text-sm">2 Critiques</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-slate-400">Charge CPU Parc:</span>
+                <span id="stat-avg-cpu" class="font-mono font-bold text-cyan-400 text-sm">28%</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button onclick="triggerGlobalScan()" class="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-semibold flex items-center gap-1.5 transition">
+                <svg class="w-3.5 h-3.5 animate-spin" id="scan-spinner" style="display:none;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                <svg class="w-3.5 h-3.5" id="scan-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Scan Parc
+            </button>
+            <div class="text-right pl-3 border-l border-cyber-border">
+                <div class="text-xs font-bold text-slate-200">Admin IT</div>
+                <div class="text-[10px] text-cyan-400">Console SysAdmin</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP LAYOUT (SIDEBAR + MAIN CONTENT AREA) -->
+    <div class="flex flex-1 overflow-hidden">
+
+        <!-- NAVIGATION SIDEBAR -->
+        <aside class="w-60 bg-cyber-900 border-r border-cyber-border flex flex-col justify-between shrink-0">
+            <nav class="p-3 space-y-1 text-xs font-medium">
+                <div class="px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Supervision</div>
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 font-semibold transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                    Vue d'ensemble
+                </button>
+                <button onclick="switchTab('inventory')" id="nav-inventory" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-cyber-800 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Inventaire PC
+                </button>
+                <button onclick="switchTab('alerts')" id="nav-alerts" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-cyber-800 transition">
+                    <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    Alertes & Logs
+                </button>
+
+                <div class="px-3 pt-6 pb-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Administration</div>
+                <button onclick="openRemoteDesktopModal('PC-DESK-01')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-cyber-800 transition">
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    Prise de Main RDP
+                </button>
+                <button onclick="switchTab('terminal')" id="nav-terminal" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-cyber-800 transition">
+                    <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    Console PowerShell
+                </button>
+                <button onclick="switchTab('agent-generator')" id="nav-agent-generator" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-cyber-800 transition">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                    Générateur Agent PS
+                </button>
+            </nav>
+
+            <div class="p-3 border-t border-cyber-border bg-cyber-950">
+                <div class="p-3 rounded-xl bg-cyber-900 border border-cyber-border text-[11px] space-y-1">
+                    <div class="text-slate-400 font-medium">Serveur RMM :</div>
+                    <div class="font-mono text-emerald-400 font-bold flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        192.168.1.250:8443
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN DISPLAY PANELS -->
+        <main class="flex-1 overflow-y-auto bg-cyber-950 p-6">
+
+            <!-- TAB 1: DASHBOARD -->
+            <section id="tab-dashboard" class="tab-content space-y-6">
+                <!-- Top Summary Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-cyber-900 border border-cyber-border p-4 rounded-2xl relative overflow-hidden">
+                        <div class="text-xs font-semibold text-slate-400">Total Ordinateurs</div>
+                        <div class="text-3xl font-black text-white mt-1 font-mono" id="card-total-pcs">8</div>
+                        <div class="text-[10px] text-cyan-400 mt-2 flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> 6 Windows 11 &bull; 2 Windows 10
+                        </div>
+                    </div>
+
+                    <div class="bg-cyber-900 border border-cyber-border p-4 rounded-2xl relative overflow-hidden">
+                        <div class="text-xs font-semibold text-slate-400">Statut Disponibilité</div>
+                        <div class="text-3xl font-black text-emerald-400 mt-1 font-mono">75%</div>
+                        <div class="text-[10px] text-emerald-400 mt-2 font-mono">6 En ligne &bull; 2 Hors ligne</div>
+                    </div>
+
+                    <div class="bg-cyber-900 border border-cyber-border p-4 rounded-2xl relative overflow-hidden">
+                        <div class="text-xs font-semibold text-slate-400">Santé Stockage Parc</div>
+                        <div class="text-3xl font-black text-amber-400 mt-1 font-mono">1.8 TB</div>
+                        <div class="text-[10px] text-slate-400 mt-2">Utilisé sur 4.0 TB au total</div>
+                    </div>
+
+                    <div class="bg-cyber-900 border border-cyber-border p-4 rounded-2xl relative overflow-hidden">
+                        <div class="text-xs font-semibold text-slate-400">Alertes Nécessitant Action</div>
+                        <div class="text-3xl font-black text-rose-500 mt-1 font-mono">2</div>
+                        <div class="text-[10px] text-rose-400 mt-2 font-semibold">1 Disque plein &bull; 1 RAM > 90%</div>
+                    </div>
+                </div>
+
+                <!-- Graphs & Realtime Performance Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- SVG Chart: CPU Activity -->
+                    <div class="lg:col-span-2 bg-cyber-900 border border-cyber-border p-5 rounded-2xl space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-bold text-white text-sm">Charge Moyenne Processeur (Parc Client)</h3>
+                                <p class="text-[11px] text-slate-400">Télémesure collectée toutes les 5 secondes</p>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 text-xs font-mono font-bold border border-cyan-500/20">Moyenne: 28%</span>
+                        </div>
+                        
+                        <!-- Inline SVG Chart -->
+                        <div class="h-48 w-full relative flex items-end">
+                            <svg class="w-full h-full" viewBox="0 0 500 150" preserveAspectRatio="none">
+                                <defs>
+                                    <linearGradient id="grad-cpu" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.4" />
+                                        <stop offset="100%" stop-color="#00f0ff" stop-opacity="0.0" />
+                                    </linearGradient>
+                                </defs>
+                                <path d="M0,120 Q50,90 100,110 T200,60 T300,80 T400,30 T500,70 L500,150 L0,150 Z" fill="url(#grad-cpu)" />
+                                <path d="M0,120 Q50,90 100,110 T200,60 T300,80 T400,30 T500,70" fill="none" stroke="#00f0ff" stroke-width="3" />
+                            </svg>
+                        </div>
+                        <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                            <span>-15 min</span><span>-10 min</span><span>-5 min</span><span>Maintenant</span>
+                        </div>
+                    </div>
+
+                    <!-- OS Breakdown & Quick Actions -->
+                    <div class="bg-cyber-900 border border-cyber-border p-5 rounded-2xl flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-white text-sm mb-1">Répartition des Systèmes</h3>
+                            <p class="text-[11px] text-slate-400 mb-4">Versions OS détectées dans le parc</p>
+                            
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <span class="text-slate-300 font-medium">Windows 11 Pro 23H2</span>
+                                        <span class="font-mono text-cyan-400 font-bold">75% (6)</span>
+                                    </div>
+                                    <div class="h-2 w-full bg-cyber-950 rounded-full overflow-hidden">
+                                        <div class="h-full bg-cyan-400 rounded-full" style="width:75%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <span class="text-slate-300 font-medium">Windows 10 Enterprise</span>
+                                        <span class="font-mono text-indigo-400 font-bold">25% (2)</span>
+                                    </div>
+                                    <div class="h-2 w-full bg-cyber-950 rounded-full overflow-hidden">
+                                        <div class="h-full bg-indigo-500 rounded-full" style="width:25%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-6 border-t border-cyber-border">
+                            <div class="text-xs font-bold text-slate-300 mb-2">Actions Globales Rapides</div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="triggerActionAll('update')" class="p-2 rounded-xl bg-cyber-800 hover:bg-cyber-700 text-slate-200 text-xs font-medium border border-cyber-border flex items-center justify-center gap-1.5 transition">
+                                    <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                    WinUpdate All
+                                </button>
+                                <button onclick="triggerActionAll('clean')" class="p-2 rounded-xl bg-cyber-800 hover:bg-cyber-700 text-slate-200 text-xs font-medium border border-cyber-border flex items-center justify-center gap-1.5 transition">
+                                    <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    Purge Temp
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Realtime Machine Quick Cards -->
+                <div>
+                    <h3 class="font-bold text-white text-base mb-3">Machines Principales du Parc</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="dashboard-pc-cards">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: FULL INVENTORY TABLE -->
+            <section id="tab-inventory" class="tab-content hidden space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-cyber-900 p-4 rounded-2xl border border-cyber-border">
+                    <div class="relative w-full sm:w-72">
+                        <input type="text" id="inventory-search" onkeyup="filterInventoryTable()" placeholder="Rechercher PC, IP, Utilisateur, OS..." class="w-full bg-cyber-950 border border-cyber-border rounded-xl pl-9 pr-4 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+                        <svg class="w-4 h-4 text-slate-500 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <select id="filter-status" onchange="filterInventoryTable()" class="bg-cyber-950 border border-cyber-border rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none">
+                            <option value="all">Tous les statuts</option>
+                            <option value="online">En ligne uniquement</option>
+                            <option value="offline">Hors ligne uniquement</option>
+                        </select>
+                        <button onclick="exportInventoryCSV()" class="px-3 py-2 rounded-xl bg-cyber-800 hover:bg-cyber-700 text-slate-200 text-xs font-semibold border border-cyber-border flex items-center gap-1.5 transition">
+                            <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            Exporter CSV
+                        </button>
+                    </div>
+                </div>
+
+                <!-- PC Inventory Table -->
+                <div class="bg-cyber-900 border border-cyber-border rounded-2xl overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs text-slate-300">
+                            <thead class="bg-cyber-950 text-slate-400 uppercase font-mono text-[10px] border-b border-cyber-border">
+                                <tr>
+                                    <th class="p-4">Statut / Ordinateur</th>
+                                    <th class="p-4">Utilisateur</th>
+                                    <th class="p-4">Réseau (IP / MAC)</th>
+                                    <th class="p-4">Processeur & RAM</th>
+                                    <th class="p-4">Espace Disque</th>
+                                    <th class="p-4">Système d'Exploitation</th>
+                                    <th class="p-4 text-right">Actions RMM</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventory-table-body" class="divide-y divide-cyber-border">
+                                <!-- Populated dynamically by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: ALERTS & LOGS -->
+            <section id="tab-alerts" class="tab-content hidden space-y-4">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 space-y-4">
+                        <h3 class="font-bold text-white text-base">Journal des Événements & Alertes Système</h3>
+                        <div class="bg-cyber-900 border border-cyber-border rounded-2xl p-4 space-y-3" id="alerts-list">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <h3 class="font-bold text-white text-base">Services Windows Critiques</h3>
+                        <div class="bg-cyber-900 border border-cyber-border rounded-2xl p-4 space-y-3">
+                            <div class="flex justify-between items-center p-2.5 rounded-xl bg-cyber-950 border border-cyber-border">
+                                <div>
+                                    <div class="font-bold text-slate-200 text-xs">Spouleur d'impression (Spooler)</div>
+                                    <div class="text-[10px] text-slate-400">Services d'impression réseau</div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono text-[10px] font-bold">En cours</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2.5 rounded-xl bg-cyber-950 border border-cyber-border">
+                                <div>
+                                    <div class="font-bold text-slate-200 text-xs">Windows Defender (WinDefend)</div>
+                                    <div class="text-[10px] text-slate-400">Antivirus & Protection Threat</div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono text-[10px] font-bold">En cours</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2.5 rounded-xl bg-cyber-950 border border-cyber-border">
+                                <div>
+                                    <div class="font-bold text-slate-200 text-xs">Windows Update (wuauserv)</div>
+                                    <div class="text-[10px] text-slate-400">Mises à jour système</div>
+                                </div>
+                                <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono text-[10px] font-bold">Arrêté</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: POWERSHELL TERMINAL -->
+            <section id="tab-terminal" class="tab-content hidden space-y-4">
+                <div class="bg-cyber-900 border border-cyber-border rounded-2xl p-4 flex flex-col h-[calc(100vh-140px)]">
+                    <div class="flex justify-between items-center pb-3 border-b border-cyber-border mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+                            <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                            <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                            <span class="ml-2 font-mono text-xs text-slate-300 font-bold">Windows PowerShell Admin (Direct Console)</span>
+                        </div>
+                        <select id="terminal-target-pc" class="bg-cyber-950 border border-cyber-border rounded-lg px-2.5 py-1 text-xs text-cyan-400 font-mono">
+                            <option value="PC-DESK-01">Cible: PC-DESK-01 (192.168.1.45)</option>
+                            <option value="PC-DIR-EXEC">Cible: PC-DIR-EXEC (192.168.1.12)</option>
+                        </select>
+                    </div>
+
+                    <!-- Console Screen Output -->
+                    <div id="terminal-output" class="flex-1 bg-cyber-950 rounded-xl p-4 font-mono text-xs text-slate-300 overflow-y-auto space-y-2 border border-cyber-border">
+                        <p class="text-cyan-400">Windows PowerShell 7.4.1 - WinPulse Remote Management Console</p>
+                        <p class="text-slate-500">Tapez 'help' ou cliquez sur les commandes prédéfinies ci-dessous.</p>
+                        <br>
+                    </div>
+
+                    <!-- Quick Preset Buttons -->
+                    <div class="py-2 flex gap-2 flex-wrap text-xs">
+                        <button onclick="runPresetCommand('Get-Process | Sort-Object CPU -Descending | Select-Object -First 5')" class="px-2.5 py-1 rounded-lg bg-cyber-800 hover:bg-cyber-700 text-slate-300 font-mono">Top CPU Processes</button>
+                        <button onclick="runPresetCommand('Get-Service | Where-Object Status -eq Status -eq Running')" class="px-2.5 py-1 rounded-lg bg-cyber-800 hover:bg-cyber-700 text-slate-300 font-mono">Services Actifs</button>
+                        <button onclick="runPresetCommand('Get-Volume')" class="px-2.5 py-1 rounded-lg bg-cyber-800 hover:bg-cyber-700 text-slate-300 font-mono">Volumes Disques</button>
+                        <button onclick="runPresetCommand('gpupdate /force')" class="px-2.5 py-1 rounded-lg bg-cyber-800 hover:bg-cyber-700 text-slate-300 font-mono">GPUpdate Force</button>
+                    </div>
+
+                    <!-- Input Box -->
+                    <form onsubmit="handleTerminalSubmit(event)" class="flex gap-2 pt-2 border-t border-cyber-border">
+                        <span class="font-mono text-cyan-400 text-sm flex items-center">PS&gt;</span>
+                        <input type="text" id="terminal-input" placeholder="Entrez une commande PowerShell..." class="flex-1 bg-cyber-950 border border-cyber-border rounded-xl px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-500">
+                        <button type="submit" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold transition">Exécuter</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- TAB 5: AGENT GENERATOR -->
+            <section id="tab-agent-generator" class="tab-content hidden space-y-4">
+                <div class="bg-cyber-900 border border-cyber-border rounded-2xl p-6 space-y-4">
+                    <div>
+                        <h3 class="font-bold text-white text-base">Générateur d'Agent PowerShell Autonome</h3>
+                        <p class="text-xs text-slate-400 mt-1">
+                            Copiez ce script et exécutez-le dans PowerShell en administrateur sur n'importe quel ordinateur Windows. Il configurera le Bureau à distance (RDP), le pare-feu et remontera l'inventaire dans WinPulse RMM.
+                        </p>
+                    </div>
+
+                    <div class="relative">
+                        <pre class="bg-cyber-950 p-4 rounded-xl text-slate-300 font-mono text-xs border border-cyber-border overflow-x-auto max-h-96" id="agent-script-text">
+# ==============================================================================
+# WinPulse RMM - Agent de Deploiement & Diagnostic Windows
+# ==============================================================================
+
+$ErrorActionPreference = "SilentlyContinue"
+
+Write-Host "[WinPulse RMM] Installation de l'agent de supervision..." -ForegroundColor Cyan
+
+# 1. Activation RDP & Pare-feu
+Write-Host "[1/3] Activation du Bureau a Distance (RDP)..." -ForegroundColor Yellow
+Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+Enable-NetFirewallRule -DisplayGroup "Remote Desktop" -ErrorAction SilentlyContinue
+
+# 2. Releve des infos systeme
+Write-Host "[2/3] Collecte des parametres materiels..." -ForegroundColor Yellow
+$OS = Get-CimInstance Win32_OperatingSystem
+$CS = Get-CimInstance Win32_ComputerSystem
+$CPU = Get-CimInstance Win32_Processor
+
+$Report = [PSCustomObject]@{
+    HostName     = $env:COMPUTERNAME
+    User         = $env:USERNAME
+    OS           = $OS.Caption
+    RAM_GB       = [math]::Round($CS.TotalPhysicalMemory/1GB, 2)
+    CPU          = $CPU.Name
+    IP           = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -notlike "*Loopback*"}).IPAddress[0]
+}
+
+Write-Host "[3/3] Rapport d'inventaire pret :" -ForegroundColor Green
+$Report | Format-List
+</pre>
+                        <button onclick="copyAgentScript()" class="absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-bold hover:bg-cyan-500/30 transition">
+                            Copier le Script
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- MODAL: REMOTE DESKTOP VIEWER (PRISE DE MAIN) -->
+    <div id="modal-remote-desktop" class="fixed inset-0 bg-cyber-950/95 backdrop-blur-md z-50 flex flex-col hidden">
+        <!-- Remote Desktop Top Bar -->
+        <div class="h-12 bg-cyber-900 border-b border-cyber-border px-4 flex items-center justify-between text-xs shrink-0">
+            <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <div>
+                    <span id="remote-pc-title" class="font-bold text-white text-sm">PC-DESK-01</span>
+                    <span id="remote-pc-ip" class="text-slate-400 text-xs ml-2 font-mono">(192.168.1.45)</span>
+                </div>
+            </div>
+
+            <!-- Remote Controls -->
+            <div class="flex items-center gap-2">
+                <button onclick="sendRemoteCtrlAltDel()" class="px-2.5 py-1.5 rounded-lg bg-cyber-800 hover:bg-cyber-700 text-slate-200 border border-cyber-border flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    Ctrl+Alt+Suppr
+                </button>
+                <button onclick="toggleRemoteChatDrawer()" class="px-2.5 py-1.5 rounded-lg bg-cyber-800 hover:bg-cyber-700 text-slate-200 border border-cyber-border flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                    Chat User
+                </button>
+
+                <div class="h-4 w-[1px] bg-cyber-border mx-2"></div>
+
+                <span class="font-mono text-emerald-400 font-bold">60 FPS &bull; 14ms</span>
+
+                <button onclick="closeRemoteDesktopModal()" class="ml-4 px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold transition">
+                    Quitter
+                </button>
+            </div>
+        </div>
+
+        <!-- Desktop Screen Viewport -->
+        <div class="flex-1 relative overflow-hidden bg-black flex items-center justify-center p-2">
+            
+            <!-- Simulated Windows 11 Desktop Screen -->
+            <div id="simulated-desktop" class="w-full h-full max-w-[1920px] max-h-[1080px] rounded-xl overflow-hidden border border-cyber-border relative flex flex-col justify-between shadow-2xl bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop');">
+                
+                <!-- Desktop Apps Grid -->
+                <div class="p-6 grid grid-cols-1 md:grid-cols-6 gap-6 align-content-start z-10">
+                    <div onclick="openVirtualWinApp('explorer')" class="w-20 h-20 rounded-xl hover:bg-white/10 flex flex-col items-center justify-center text-white text-xs gap-1 cursor-pointer transition">
+                        <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                        Ce PC
+                    </div>
+                    <div onclick="openVirtualWinApp('powershell')" class="w-20 h-20 rounded-xl hover:bg-white/10 flex flex-col items-center justify-center text-white text-xs gap-1 cursor-pointer transition">
+                        <svg class="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        Terminal
+                    </div>
+                </div>
+
+                <!-- Simulated Window (Interactive) -->
+                <div id="virtual-app-window" class="absolute inset-16 m-auto max-w-xl h-80 bg-cyber-900/95 border border-cyber-border rounded-xl shadow-2xl flex flex-col overflow-hidden hidden z-20">
+                    <div class="bg-cyber-950 px-4 py-2 flex justify-between items-center border-b border-cyber-border">
+                        <span id="virtual-app-title" class="text-xs font-bold text-white">PowerShell Admin</span>
+                        <button onclick="closeVirtualWinApp()" class="text-slate-400 hover:text-rose-400 font-bold">✕</button>
+                    </div>
+                    <div id="virtual-app-body" class="p-4 font-mono text-xs text-slate-300 overflow-y-auto flex-1">
+                        <!-- Dynamic window content -->
+                    </div>
+                </div>
+
+                <!-- Windows 11 Taskbar -->
+                <div class="h-11 bg-cyber-950/80 backdrop-blur-md border-t border-white/10 flex items-center justify-between px-4 z-30">
+                    <div class="w-20"></div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-7 h-7 rounded hover:bg-white/10 flex items-center justify-center text-cyan-400 cursor-pointer">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg>
+                        </div>
+                    </div>
+                    <div class="text-right text-[10px] text-slate-300 font-mono">
+                        <div>11:09</div>
+                        <div>27/10/2026</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Side Live Chat Drawer -->
+            <div id="remote-chat-drawer" class="absolute top-0 right-0 bottom-0 w-80 bg-cyber-900/95 border-l border-cyber-border p-4 flex flex-col justify-between hidden z-40">
+                <div>
+                    <div class="flex justify-between items-center pb-3 border-b border-cyber-border mb-3">
+                        <h4 class="font-bold text-white text-xs">Chat Utilisateur</h4>
+                        <button onclick="toggleRemoteChatDrawer()" class="text-slate-400 hover:text-white">✕</button>
+                    </div>
+                    <div id="chat-messages" class="space-y-2 text-xs overflow-y-auto max-h-96">
+                        <div class="bg-cyber-950 p-2 rounded-lg text-slate-300">
+                            <span class="text-cyan-400 font-bold">Support IT:</span> Bonjour, je me connecte pour maintenance.
+                        </div>
+                    </div>
+                </div>
+                <form onsubmit="sendChatMessage(event)" class="flex gap-2">
+                    <input type="text" id="chat-input" placeholder="Message..." class="flex-1 bg-cyber-950 border border-cyber-border rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
+                    <button class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold">Envoyer</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: PC DETAIL VIEW -->
+    <div id="modal-pc-detail" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-cyber-900 border border-cyber-border w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-cyber-border pb-3">
+                <h3 id="pc-detail-title" class="font-extrabold text-white text-base">Fiche Ordinateur</h3>
+                <button onclick="closePcDetailModal()" class="text-slate-400 hover:text-white font-bold">✕</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 text-xs" id="pc-detail-content">
+                <!-- Dynamic detail fields -->
+            </div>
+
+            <div class="flex justify-end gap-2 pt-4 border-t border-cyber-border">
+                <button onclick="closePcDetailModal()" class="px-4 py-2 rounded-xl bg-cyber-800 text-slate-300 text-xs font-bold">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATIONS -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+    <!-- MAIN JAVASCRIPT LOGIC -->
+    <script>
+        // PC INVENTORY DATA
+        const pcList = [
+            { id: 'PC-DESK-01', name: 'PC-DESK-01', user: 'Alexandre Dev', status: 'online', ip: '192.168.1.45', mac: 'BC:24:11:89:A2:01', os: 'Windows 11 Pro 23H2', cpu: 'Intel Core i7-13700K', ram: '32 GB', ramUsage: 45, disk: '512 GB SSD (120 GB libres)', diskAlert: false },
+            { id: 'PC-DIR-EXEC', name: 'PC-DIR-EXEC', user: 'Sophie Direction', status: 'online', ip: '192.168.1.12', mac: 'BC:24:11:89:A2:08', os: 'Windows 11 Pro 23H2', cpu: 'Intel Core i5-12400', ram: '16 GB', ramUsage: 92, disk: '256 GB SSD (15 GB libres)', diskAlert: true },
+            { id: 'PC-COMPTA-02', name: 'PC-COMPTA-02', user: 'Marc Compta', status: 'online', ip: '192.168.1.88', mac: 'BC:24:11:89:A2:14', os: 'Windows 10 Enterprise', cpu: 'AMD Ryzen 5 5600G', ram: '16 GB', ramUsage: 38, disk: '500 GB NVMe (310 GB libres)', diskAlert: false },
+            { id: 'PC-PORTABLE-10', name: 'PC-PORTABLE-10', user: 'Julie Commercial', status: 'offline', ip: '192.168.1.105', mac: 'BC:24:11:89:A2:22', os: 'Windows 11 Pro 23H2', cpu: 'Intel Core i5-1135G7', ram: '8 GB', ramUsage: 0, disk: '256 GB SSD (80 GB libres)', diskAlert: false },
+            { id: 'PC-DESIGN-01', name: 'PC-DESIGN-01', user: 'Thomas Graphisme', status: 'online', ip: '192.168.1.72', mac: 'BC:24:11:89:A2:50', os: 'Windows 11 Pro 23H2', cpu: 'AMD Ryzen 9 7900X', ram: '64 GB', ramUsage: 62, disk: '2 TB NVMe (850 GB libres)', diskAlert: false },
+            { id: 'PC-ACCUEIL', name: 'PC-ACCUEIL', user: 'Standardiste', status: 'online', ip: '192.168.1.5', mac: 'BC:24:11:89:A2:99', os: 'Windows 10 Enterprise', cpu: 'Intel Core i3-10100', ram: '8 GB', ramUsage: 55, disk: '128 GB SSD (22 GB libres)', diskAlert: false }
+        ];
+
+        const alertsData = [
+            { id: 1, type: 'critical', pc: 'PC-DIR-EXEC', msg: 'Espace disque saturé (< 10% restant sur C:)', time: 'Il y a 12 min' },
+            { id: 2, type: 'warning', pc: 'PC-DIR-EXEC', msg: 'Utilisation de la RAM > 90%', time: 'Il y a 25 min' },
+            { id: 3, type: 'info', pc: 'PC-DESK-01', msg: 'Mise à jour Windows installée avec succès', time: 'Il y a 2h' }
+        ];
+
+        // INITIALIZATION ON LOAD
+        window.onload = function() {
+            renderDashboardCards();
+            renderInventoryTable();
+            renderAlerts();
+        };
+
+        // TAB SWITCHING LOGIC
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-btn').forEach(el => {
+                el.classList.remove('text-cyan-400', 'bg-cyan-500/10', 'border', 'border-cyan-500/30', 'font-semibold');
+                el.classList.add('text-slate-400');
+            });
+
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            const activeNav = document.getElementById('nav-' + tabId);
+            if (activeNav) {
+                activeNav.classList.add('text-cyan-400', 'bg-cyan-500/10', 'border', 'border-cyan-500/30', 'font-semibold');
+                activeNav.classList.remove('text-slate-400');
+            }
+        }
+
+        // RENDER DASHBOARD PC CARDS
+        function renderDashboardCards() {
+            const container = document.getElementById('dashboard-pc-cards');
+            container.innerHTML = '';
+
+            pcList.forEach(pc => {
+                const isOnline = pc.status === 'online';
+                container.innerHTML += `
+                    <div class="bg-cyber-900 border border-cyber-border rounded-2xl p-4 space-y-3 relative overflow-hidden">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-bold text-white text-sm flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}"></span>
+                                    ${pc.name}
+                                </div>
+                                <div class="text-[11px] text-slate-400 font-mono mt-0.5">${pc.ip} &bull; ${pc.user}</div>
+                            </div>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${isOnline ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-500'}">
+                                ${isOnline ? 'ONLINE' : 'OFFLINE'}
+                            </span>
+                        </div>
+
+                        ${isOnline ? `
+                        <div class="space-y-1.5">
+                            <div class="flex justify-between text-[10px]">
+                                <span class="text-slate-400">RAM: ${pc.ram}</span>
+                                <span class="font-mono text-cyan-400 font-bold">${pc.ramUsage}%</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-cyber-950 rounded-full overflow-hidden">
+                                <div class="h-full ${pc.ramUsage > 85 ? 'bg-rose-500' : 'bg-cyan-400'} rounded-full" style="width:${pc.ramUsage}%"></div>
+                            </div>
+                        </div>
+                        ` : '<div class="text-xs text-slate-500 italic py-1">Machine actuellement éteinte.</div>'}
+
+                        <div class="pt-2 border-t border-cyber-border flex justify-between items-center text-xs">
+                            <button onclick="openPcDetailModal('${pc.id}')" class="text-slate-400 hover:text-cyan-400 text-[11px] font-semibold">Détails</button>
+                            ${isOnline ? `
+                            <button onclick="openRemoteDesktopModal('${pc.id}')" class="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-bold border border-cyan-500/30 text-[11px] flex items-center gap-1 transition">
+                                Prise de main
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // RENDER TABLE
+        function renderInventoryTable() {
+            const tbody = document.getElementById('inventory-table-body');
+            tbody.innerHTML = '';
+
+            pcList.forEach(pc => {
+                const isOnline = pc.status === 'online';
+                tbody.innerHTML += `
+                    <tr class="hover:bg-cyber-800/50 transition">
+                        <td class="p-4">
+                            <div class="font-bold text-white flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
+                                ${pc.name}
+                            </div>
+                            <div class="text-[10px] text-slate-500 font-mono">${pc.id}</div>
+                        </td>
+                        <td class="p-4 text-slate-300">${pc.user}</td>
+                        <td class="p-4 font-mono text-[11px]">
+                            <div>${pc.ip}</div>
+                            <div class="text-slate-500 text-[10px]">${pc.mac}</div>
+                        </td>
+                        <td class="p-4">
+                            <div class="text-slate-200 text-[11px]">${pc.cpu}</div>
+                            <div class="text-cyan-400 text-[10px] font-mono">${pc.ram}</div>
+                        </td>
+                        <td class="p-4">
+                            <div class="text-[11px] ${pc.diskAlert ? 'text-rose-400 font-bold' : 'text-slate-300'}">${pc.disk}</div>
+                        </td>
+                        <td class="p-4 text-slate-400 text-[11px]">${pc.os}</td>
+                        <td class="p-4 text-right space-x-1">
+                            ${isOnline ? `
+                            <button onclick="openRemoteDesktopModal('${pc.id}')" title="Prise de main RDP" class="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-bold transition">
+                                RDP
+                            </button>
+                            ` : ''}
+                            <button onclick="openPcDetailModal('${pc.id}')" title="Voir fiche" class="px-2.5 py-1.5 rounded-lg bg-cyber-800 hover:bg-cyber-700 text-slate-300 transition">
+                                Fiche
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // RENDER ALERTS
+        function renderAlerts() {
+            const container = document.getElementById('alerts-list');
+            container.innerHTML = '';
+
+            alertsData.forEach(alert => {
+                const isCrit = alert.type === 'critical';
+                container.innerHTML += `
+                    <div class="p-3 rounded-xl ${isCrit ? 'bg-rose-500/10 border border-rose-500/30' : 'bg-cyber-950 border border-cyber-border'} flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-xs ${isCrit ? 'text-rose-400' : 'text-slate-200'}">${alert.pc} : ${alert.msg}</div>
+                            <div class="text-[10px] text-slate-500 mt-0.5">${alert.time}</div>
+                        </div>
+                        <button onclick="showToast('Action de résolution lancée sur ${alert.pc}', 'info')" class="px-2.5 py-1 rounded bg-cyber-800 hover:bg-cyber-700 text-slate-200 text-[11px] font-bold">Résoudre</button>
+                    </div>
+                `;
+            });
+        }
+
+        // FILTER INVENTORY
+        function filterInventoryTable() {
+            const search = document.getElementById('inventory-search').value.toLowerCase();
+            const statusFilter = document.getElementById('filter-status').value;
+
+            const rows = document.querySelectorAll('#inventory-table-body tr');
+            rows.forEach((row, idx) => {
+                const pc = pcList[idx];
+                const matchesSearch = pc.name.toLowerCase().includes(search) || pc.user.toLowerCase().includes(search) || pc.ip.includes(search);
+                const matchesStatus = statusFilter === 'all' || pc.status === statusFilter;
+
+                if (matchesSearch && matchesStatus) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // REMOTE DESKTOP MODAL CONTROLLER
+        function openRemoteDesktopModal(pcId) {
+            const pc = pcList.find(p => p.id === pcId) || pcList[0];
+            document.getElementById('remote-pc-title').innerText = pc.name + ' (' + pc.user + ')';
+            document.getElementById('remote-pc-ip').innerText = '(' + pc.ip + ')';
+            document.getElementById('modal-remote-desktop').classList.remove('hidden');
+            showToast('Connexion à la session distante RDP de ' + pc.name + '...', 'info');
+        }
+
+        function closeRemoteDesktopModal() {
+            document.getElementById('modal-remote-desktop').classList.add('hidden');
+        }
+
+        function sendRemoteCtrlAltDel() {
+            showToast('Signal Ctrl+Alt+Suppr transmis à la machine distante.', 'warning');
+        }
+
+        function toggleRemoteChatDrawer() {
+            document.getElementById('remote-chat-drawer').classList.toggle('hidden');
+        }
+
+        function sendChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            if (!input.value.trim()) return;
+
+            const box = document.getElementById('chat-messages');
+            box.innerHTML += `
+                <div class="bg-cyber-950 p-2 rounded-lg text-slate-300">
+                    <span class="text-cyan-400 font-bold">Support IT:</span> ${input.value}
+                </div>
+            `;
+            input.value = '';
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function openVirtualWinApp(app) {
+            const win = document.getElementById('virtual-app-window');
+            const title = document.getElementById('virtual-app-title');
+            const body = document.getElementById('virtual-app-body');
+
+            win.classList.remove('hidden');
+            if (app === 'explorer') {
+                title.innerText = "Explorateur de fichiers (C:\\Users\\Public)";
+                body.innerHTML = `
+                    <div class="space-y-2">
+                        <div class="p-2 bg-cyber-950 rounded border border-cyber-border">📁 Downloads</div>
+                        <div class="p-2 bg-cyber-950 rounded border border-cyber-border">📁 Documents</div>
+                        <div class="p-2 bg-cyber-950 rounded border border-cyber-border">📄 System_Audit.log (14 KB)</div>
+                    </div>
+                `;
+            } else {
+                title.innerText = "PowerShell Remote Direct";
+                body.innerHTML = `
+                    <p class="text-cyan-400">Windows PowerShell 7.4.1</p>
+                    <p class="text-slate-400">PS C:\\Users\\Public&gt; Get-Service -Name "WinPulseAgent"</p>
+                    <p class="text-emerald-400 mt-2">Status: Running (Agent actif)</p>
+                `;
+            }
+        }
+
+        function closeVirtualWinApp() {
+            document.getElementById('virtual-app-window').classList.add('hidden');
+        }
+
+        // PC DETAIL MODAL
+        function openPcDetailModal(pcId) {
+            const pc = pcList.find(p => p.id === pcId);
+            if (!pc) return;
+
+            document.getElementById('pc-detail-title').innerText = "Fiche Ordinateur - " + pc.name;
+            document.getElementById('pc-detail-content').innerHTML = `
+                <div class="p-3 bg-cyber-950 rounded-xl border border-cyber-border">
+                    <div class="text-slate-500 text-[10px]">Utilisateur Assigné</div>
+                    <div class="font-bold text-white mt-1">${pc.user}</div>
+                </div>
+                <div class="p-3 bg-cyber-950 rounded-xl border border-cyber-border">
+                    <div class="text-slate-500 text-[10px]">Système d'Exploitation</div>
+                    <div class="font-bold text-cyan-400 mt-1">${pc.os}</div>
+                </div>
+                <div class="p-3 bg-cyber-950 rounded-xl border border-cyber-border">
+                    <div class="text-slate-500 text-[10px]">Adresse IP</div>
+                    <div class="font-mono text-white mt-1">${pc.ip}</div>
+                </div>
+                <div class="p-3 bg-cyber-950 rounded-xl border border-cyber-border">
+                    <div class="text-slate-500 text-[10px]">Adresse MAC</div>
+                    <div class="font-mono text-white mt-1">${pc.mac}</div>
+                </div>
+                <div class="p-3 bg-cyber-950 rounded-xl border border-cyber-border">
+                    <div class="text-slate-500 text-[10px]">Processeur</div>
+                    <div class="text-slate-200 mt-1">${pc.cpu}</div>
+                </div>
+                <div class="p-3 bg-cyber-950 rounded-xl border border-cyber-border">
+                    <div class="text-slate-500 text-[10px]">Mémoire RAM / Disque</div>
+                    <div class="text-slate-200 mt-1">${pc.ram} &bull; ${pc.disk}</div>
+                </div>
+            `;
+            document.getElementById('modal-pc-detail').classList.remove('hidden');
+        }
+
+        function closePcDetailModal() {
+            document.getElementById('modal-pc-detail').classList.add('hidden');
+        }
+
+        // TERMINAL SUBMIT
+        function handleTerminalSubmit(e) {
+            e.preventDefault();
+            const input = document.getElementById('terminal-input');
+            const cmd = input.value.trim();
+            if (!cmd) return;
+
+            runPresetCommand(cmd);
+            input.value = '';
+        }
+
+        function runPresetCommand(cmd) {
+            const output = document.getElementById('terminal-output');
+            output.innerHTML += `<p class="text-cyan-400">PS C:\\&gt; ${cmd}</p>`;
+
+            setTimeout(() => {
+                if (cmd.includes('Get-Process')) {
+                    output.innerHTML += `
+                        <div class="text-slate-400">
+                            NPM(K)  PM(M)   WS(M)  CPU(s)    Id ProcessName<br>
+                            ------  -----   -----  ------    -- -----------<br>
+                               45    120     180   14.20  4120 chrome<br>
+                               12     45      88    5.10  1204 WinPulseAgent<br>
+                               8      15      30    1.10   892 explorer
+                        </div>
+                    `;
+                } else {
+                    output.innerHTML += `<p class="text-emerald-400">Commande exécutée avec succès sur le poste distant.</p>`;
+                }
+                output.scrollTop = output.scrollHeight;
+            }, 300);
+        }
+
+        // QUICK ACTIONS
+        function triggerActionAll(action) {
+            if (action === 'update') {
+                showToast("Lancement de Windows Update sur toutes les machines en ligne...", "info");
+            } else {
+                showToast("Nettoyage des fichiers temporaires lancé sur le parc.", "success");
+            }
+        }
+
+        function triggerGlobalScan() {
+            document.getElementById('scan-icon').style.display = 'none';
+            document.getElementById('scan-spinner').style.display = 'block';
+
+            setTimeout(() => {
+                document.getElementById('scan-icon').style.display = 'block';
+                document.getElementById('scan-spinner').style.display = 'none';
+                showToast("Scan du parc informatique terminé. Toutes les données sont à jour.", "success");
+            }, 1200);
+        }
+
+        function copyAgentScript() {
+            const text = document.getElementById('agent-script-text').innerText;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showToast("Script PowerShell copié dans le presse-papier !", "success");
+        }
+
+        function exportInventoryCSV() {
+            showToast("Export CSV généré (6 ordinateurs exportés).", "success");
+        }
+
+        // TOAST NOTIFICATIONS
+        function showToast(msg, type = "info") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            let colors = "bg-cyber-900 text-cyan-400 border-cyan-500/30";
+            if (type === "success") colors = "bg-cyber-900 text-emerald-400 border-emerald-500/30";
+            if (type === "warning") colors = "bg-cyber-900 text-amber-400 border-amber-500/30";
+
+            toast.className = `p-3 rounded-xl border ${colors} shadow-2xl text-xs font-bold transition transform duration-300 pointer-events-auto flex items-center gap-2`;
+            toast.innerText = msg;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
